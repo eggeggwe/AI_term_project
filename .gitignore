@@ -207,8 +207,4 @@ marimo/_lsp/
 __marimo__/
 
 # 資料集從雲端硬碟下載
-# /data/*
-# !/data/.gitkeep
-# /my_env/
 data
-my_env
