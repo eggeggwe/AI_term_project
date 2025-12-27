@@ -208,3 +208,6 @@ __marimo__/
 
 # 資料集從雲端硬碟下載
 data
+
+# 忽略 local data
+local
