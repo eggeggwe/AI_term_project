@@ -25,7 +25,8 @@ OUTPUT_SEQ_LEN = 48   # 預測未來 24 小時
 BATCH_SIZE = 512
 HIDDEN_SIZE = 256
 NUM_LAYERS = 4
-EPOCHS = 20
+EPOCHS = 200
+PATIENCE = 20  # Early Stopping 耐心值
 LEARNING_RATE = 0.001
 
 # 特徵維度設定
@@ -244,25 +245,35 @@ class Seq2Seq(nn.Module):
 # 5. 主執行流程
 # ==========================================
 if __name__ == "__main__":
-    
     # --- Step 1: 準備資料 ---
     df, scaler = load_and_preprocess_data(DATA_PATH)
     
-    # --- 固定切分：前 50 天訓練，後 25 天測試 ---
-    TRAIN_DAYS = 50
+    # --- 固定切分：40 天訓練，10 天驗證，25 天測試 ---
+    TRAIN_DAYS = 40
+    VAL_DAYS = 10
     TEST_DAYS = 25
     TOTAL_DAYS = 75
     
-    # 重新建立 Dataset：分別為訓練集和測試集
+    # 重新建立 Dataset：分別為訓練集、驗證集和測試集
     train_df = df[df['d'] < TRAIN_DAYS]
-    test_df = df[df['d'] >= TRAIN_DAYS]
+    val_df = df[(df['d'] >= TRAIN_DAYS) & (df['d'] < TRAIN_DAYS + VAL_DAYS)]
+    test_df = df[df['d'] >= TRAIN_DAYS + VAL_DAYS]
     
     print(f"訓練集天數: 0 ~ {TRAIN_DAYS-1} (共 {TRAIN_DAYS} 天)")
-    print(f"測試集天數: {TRAIN_DAYS} ~ {TOTAL_DAYS-1} (共 {TEST_DAYS} 天)")
+    print(f"驗證集天數: {TRAIN_DAYS} ~ {TRAIN_DAYS+VAL_DAYS-1} (共 {VAL_DAYS} 天)")
+    print(f"測試集天數: {TRAIN_DAYS+VAL_DAYS} ~ {TOTAL_DAYS-1} (共 {TEST_DAYS} 天)")
     
     print("Creating dataset with One-Hot time period features...")
     train_dataset = GridTimeSeriesDataset(
         train_df, 
+        group_by_cols=['x', 'y'],
+        target_col='number_scaled',
+        input_seq_len=INPUT_SEQ_LEN,
+        output_seq_len=OUTPUT_SEQ_LEN
+    )
+    
+    val_dataset = GridTimeSeriesDataset(
+        val_df, 
         group_by_cols=['x', 'y'],
         target_col='number_scaled',
         input_seq_len=INPUT_SEQ_LEN,
@@ -282,9 +293,11 @@ if __name__ == "__main__":
         exit()
     
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
     
     print(f"Training samples: {len(train_dataset)}")
+    print(f"Validation samples: {len(val_dataset)}")
     print(f"Testing samples: {len(test_dataset)}")
     
     # --- Step 2: 建立模型 ---
@@ -295,9 +308,11 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
     criterion = nn.MSELoss()
     
-    # --- Step 3: 訓練迴圈 ---
+    # --- Step 3: 訓練迴圈 (含 Early Stopping) ---
     print("Starting training...")
     best_val_loss = float('inf')
+    patience_counter = 0
+    best_model_state = None
     
     for epoch in range(EPOCHS):
         model.train()
@@ -316,11 +331,37 @@ if __name__ == "__main__":
             
         avg_train_loss = total_train_loss / len(train_loader)
         
-        print(f"Epoch {epoch+1}/{EPOCHS} | Train Loss: {avg_train_loss:.6f}")
+        # 驗證階段：使用驗證集計算 validation loss
+        model.eval()
+        total_val_loss = 0
+        with torch.no_grad():
+            for x, y in val_loader:
+                x, y = x.to(DEVICE), y.to(DEVICE)
+                output = model(x)
+                val_loss = criterion(output, y)
+                total_val_loss += val_loss.item()
+        avg_val_loss = total_val_loss / len(val_loader)
         
-        # 每個 epoch 都儲存模型（與 model1 類似，不做 early stopping）
+        print(f"Epoch {epoch+1}/{EPOCHS} | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f}")
+        
+        # Early Stopping 檢查
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            patience_counter = 0
+            best_model_state = model.state_dict().copy()
+            print(f"  ✓ Best model updated (Val Loss: {best_val_loss:.6f})")
+        else:
+            patience_counter += 1
+            print(f"  No improvement ({patience_counter}/{PATIENCE})")
+            
+        if patience_counter >= PATIENCE:
+            print(f"\nEarly stopping triggered at epoch {epoch+1}!")
+            break
     
-    # 訓練結束後儲存模型
+    # 載入最佳模型並儲存
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+    
     torch.save({
         'model_state_dict': model.state_dict(),
         'hyperparameters': {
@@ -332,7 +373,7 @@ if __name__ == "__main__":
         }
     }, MODEL_SAVE_PATH)
             
-    print(f"Training complete. Model saved to {MODEL_SAVE_PATH}")
+    print(f"\nTraining complete. Best model saved to {MODEL_SAVE_PATH}")
     joblib.dump(scaler, SCALER_SAVE_PATH)
     
     # --- Step 4: 評估模型（使用測試集）---
