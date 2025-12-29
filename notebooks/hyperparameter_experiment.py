@@ -43,8 +43,8 @@ VAL_DAYS = 10
 TEST_DAYS = 25
 
 # 訓練設定
-EPOCHS = 100          # 調低以加速實驗
-PATIENCE = 15         # Early Stopping 耐心值
+EPOCHS = 300          # 調低以加速實驗
+PATIENCE = 20         # Early Stopping 耐心值
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {DEVICE}")
