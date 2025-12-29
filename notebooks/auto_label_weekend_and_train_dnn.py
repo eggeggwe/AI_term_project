@@ -11,6 +11,7 @@ AI 期末作業 - 自動化標籤生成與 DNN 週間/週末分類
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -19,6 +20,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import confusion_matrix, classification_report
 import seaborn as sns
+
+# 設定中文字型支援
+matplotlib.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+matplotlib.rcParams['axes.unicode_minus'] = False  # 解決負號顯示問題
 
 # 設定隨機種子以確保結果可重現
 torch.manual_seed(42)

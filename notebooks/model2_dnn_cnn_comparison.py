@@ -16,7 +16,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
+import matplotlib
+
+# 設定中文字型支援
+matplotlib.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+matplotlib.rcParams['axes.unicode_minus'] = False  # 解決負號顯示問題
 
 # 設定隨機種子以確保結果可重現
 torch.manual_seed(42)
@@ -385,7 +391,9 @@ axes[1, 1].grid(True)
 
 plt.tight_layout()
 plt.suptitle('DNN vs CNN 訓練過程比較', fontsize=14, y=1.02)
+plt.savefig('../models/dnn_cnn_training_comparison.png', dpi=150, bbox_inches='tight')
 plt.show()
+print("✅ DNN vs CNN 訓練過程比較圖已儲存至 ../models/dnn_cnn_training_comparison.png")
 
 ######################################################
 # Cell 14: DNN vs CNN 直接對比圖
@@ -411,7 +419,9 @@ axes[1].legend()
 axes[1].grid(True)
 
 plt.tight_layout()
+plt.savefig('../models/dnn_cnn_validation_comparison.png', dpi=150)
 plt.show()
+print("✅ DNN vs CNN 驗證對比圖已儲存至 ../models/dnn_cnn_validation_comparison.png")
 
 ######################################################
 # Cell 15: 模型效能總結
@@ -489,6 +499,31 @@ print(f"DNN 測試準確率: {dnn_test_acc:.4f}")
 print(f"CNN 測試準確率: {cnn_test_acc:.4f}")
 
 ######################################################
+# Cell 17.5: 繪製 Confusion Matrix
+######################################################
+# 類別標籤
+class_labels = ['Morning', 'Afternoon', 'Evening']
+
+# DNN Confusion Matrix
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+cm_dnn = confusion_matrix(y_test.numpy(), dnn_predicted.numpy())
+disp_dnn = ConfusionMatrixDisplay(confusion_matrix=cm_dnn, display_labels=class_labels)
+disp_dnn.plot(ax=axes[0], cmap='Blues', colorbar=False)
+axes[0].set_title('DNN Confusion Matrix', fontsize=14)
+
+# CNN Confusion Matrix
+cm_cnn = confusion_matrix(y_test.numpy(), cnn_predicted.numpy())
+disp_cnn = ConfusionMatrixDisplay(confusion_matrix=cm_cnn, display_labels=class_labels)
+disp_cnn.plot(ax=axes[1], cmap='Greens', colorbar=False)
+axes[1].set_title('CNN Confusion Matrix', fontsize=14)
+
+plt.tight_layout()
+plt.savefig('../models/confusion_matrix_dnn_cnn.png', dpi=150)
+plt.show()
+print("✅ Confusion Matrix 已儲存至 ../models/confusion_matrix_dnn_cnn.png")
+
+######################################################
 # Cell 18: (額外) 不同參數實驗 - 層數/神經元數比較
 ######################################################
 # 這個 cell 可以用於參數討論，探討不同模型架構的影響
@@ -557,7 +592,9 @@ axes[1].legend()
 axes[1].grid(True)
 
 plt.tight_layout()
+plt.savefig('../models/dnn_architecture_comparison.png', dpi=150)
 plt.show()
+print("✅ 不同 DNN 架構比較圖已儲存至 ../models/dnn_architecture_comparison.png")
 
 # 輸出實驗結果總結
 print("\n" + "=" * 60)

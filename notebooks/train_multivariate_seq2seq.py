@@ -9,6 +9,11 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 import os
 import joblib
 import matplotlib.pyplot as plt
+import matplotlib
+
+# 設定中文字型支援
+matplotlib.rcParams['font.sans-serif'] = ['Microsoft JhengHei', 'SimHei', 'Arial Unicode MS', 'DejaVu Sans']
+matplotlib.rcParams['axes.unicode_minus'] = False  # 解決負號顯示問題
 
 # ==========================================
 # 1. 參數設定 (Configuration)
